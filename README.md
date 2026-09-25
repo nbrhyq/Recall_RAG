@@ -12,6 +12,7 @@ This repository is an AI Product Manager portfolio MVP. It deliberately runs wit
 3. Ask across the personal library.
 4. Receive a grounded synthesis and clickable source cards.
 5. If evidence is weak, Recall says the library is insufficient instead of inventing an answer.
+6. Open an original PDF from its citation or delete an item together with its vectors and local file.
 
 ## Repository
 
@@ -55,6 +56,8 @@ Open [http://localhost:3000](http://localhost:3000). The frontend loads built-in
 
 - `GET /health`
 - `GET /api/documents`
+- `GET /api/documents/{id}/file` — open the locally stored original PDF/image
+- `DELETE /api/documents/{id}` — remove the item, chunks, vectors, and original file
 - `POST /api/pdfs` — multipart PDF upload, maximum 20MB
 - `POST /api/images` — PNG/JPG/WebP upload, maximum 10MB
 - `POST /api/texts` — manually entered title and content

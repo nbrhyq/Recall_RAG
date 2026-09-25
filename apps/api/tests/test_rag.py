@@ -1,4 +1,5 @@
 from app.rag import chunk_segments, make_segments, relevance, tokenise
+from app import ollama
 
 
 def test_mixed_language_tokenisation():
@@ -19,3 +20,15 @@ def test_segments_preserve_timestamps():
     assert chunks[0]["start"] == 0
     assert chunks[-1]["end"] > chunks[0]["start"]
 
+
+def test_reranker_keeps_strong_retrieval_evidence(monkeypatch):
+    monkeypatch.setattr(
+        ollama,
+        "chat",
+        lambda *args, **kwargs: '{"results":[{"id":"weak","score":1},{"id":"exact","score":0.2}]}',
+    )
+    candidates = [
+        {"id": "exact", "text": "RAG 是外置知识库", "keyword_score": 0.5, "vector_score": 0.9},
+        {"id": "weak", "text": "不相关内容", "keyword_score": 0.0, "vector_score": 0.1},
+    ]
+    assert ollama.rerank("什么是 RAG", candidates, limit=1)[0]["id"] == "exact"

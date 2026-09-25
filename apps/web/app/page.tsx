@@ -1,8 +1,10 @@
 "use client";
 
+import "./controls.css";
+
 import { useEffect, useMemo, useState } from "react";
-import { ArrowUpRight, BookOpen, Check, ChevronRight, FileText, Image as ImageIcon, Library, Plus, Sparkles, Type, Upload, X } from "lucide-react";
-import { addImage, addPdf, addText, askQuestion, getDocuments } from "@/lib/api";
+import { ArrowUpRight, BookOpen, Check, ChevronRight, FileText, Image as ImageIcon, Library, Plus, Sparkles, Trash2, Type, Upload, X } from "lucide-react";
+import { addImage, addPdf, addText, askQuestion, deleteDocument, documentFileUrl, getDocuments } from "@/lib/api";
 import type { AskResult, Document } from "@/lib/types";
 
 const suggestions = ["Reranker 在 RAG 中有什么作用？", "怎样评估一个 RAG 产品？", "Agent 产品设计要注意什么？"];
@@ -22,6 +24,7 @@ export default function Home() {
   const [modal, setModal] = useState(false);
   const [notice, setNotice] = useState("");
   const [inputMode, setInputMode] = useState<"pdf" | "text" | "image">("pdf");
+  const [ingesting, setIngesting] = useState(false);
 
   useEffect(() => {
     getDocuments().then((result) => { setDocuments(result.documents); setDemo(result.demo); });
@@ -34,10 +37,16 @@ export default function Home() {
     setQuestion(value);
     setLoading(true);
     setAnswer(null);
-    const result = await askQuestion(value);
-    setAnswer(result);
-    setLoading(false);
-    requestAnimationFrame(() => document.querySelector("#answer")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    try {
+      const result = await askQuestion(value);
+      setAnswer(result);
+      requestAnimationFrame(() => document.querySelector("#answer")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "问答失败，请检查本地服务");
+      setTimeout(() => setNotice(""), 5000);
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function handlePdf(event: React.FormEvent<HTMLFormElement>) {
@@ -45,6 +54,7 @@ export default function Home() {
     const data = new FormData(event.currentTarget);
     const file = data.get("file");
     if (!(file instanceof File) || !file.size) return;
+    setIngesting(true);
     try {
       const document = await addPdf(file, String(data.get("title")));
       setDocuments((current) => [document, ...current]);
@@ -54,6 +64,8 @@ export default function Home() {
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "PDF 上传失败");
       setTimeout(() => setNotice(""), 4000);
+    } finally {
+      setIngesting(false);
     }
   }
 
@@ -62,6 +74,7 @@ export default function Home() {
     const data = new FormData(event.currentTarget);
     const file = data.get("file");
     if (!(file instanceof File) || !file.size) return;
+    setIngesting(true);
     try {
       const document = await addImage(file, String(data.get("title")));
       setDocuments((current) => [document, ...current]);
@@ -71,12 +84,15 @@ export default function Home() {
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "图片上传失败");
       setTimeout(() => setNotice(""), 4000);
+    } finally {
+      setIngesting(false);
     }
   }
 
   async function handleText(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
+    setIngesting(true);
     try {
       const document = await addText(String(data.get("title")), String(data.get("content")));
       setDocuments((current) => [document, ...current]);
@@ -86,7 +102,21 @@ export default function Home() {
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "文字添加失败");
       setTimeout(() => setNotice(""), 4000);
+    } finally {
+      setIngesting(false);
     }
+  }
+
+  async function removeDocument(item: Document) {
+    if (!window.confirm(`确定删除“${item.title}”吗？对应索引和原文件也会删除。`)) return;
+    try {
+      await deleteDocument(item.id);
+      setDocuments((current) => current.filter((document) => document.id !== item.id));
+      setNotice("知识条目已删除");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "删除失败");
+    }
+    setTimeout(() => setNotice(""), 3500);
   }
 
   return (
@@ -127,11 +157,11 @@ export default function Home() {
             <aside className="sources">
               <div className="source-heading"><span>引用来源</span><small>{answer.citations.length} 个片段</small></div>
               {answer.citations.map((citation, index) => (
-                <div className="source-card" key={`${citation.document_id}-${index}`}>
+                <a className="source-card" key={`${citation.document_id}-${index}`} href={citation.source_type === "text" ? undefined : documentFileUrl(citation.document_id)} target={citation.source_type === "text" ? undefined : "_blank"} rel="noreferrer">
                   <div className="source-number">{String(index + 1).padStart(2, "0")}</div>
                   <div><h3>{citation.title}</h3><span>{citation.source_type === "pdf" ? `${citation.file_name} · 第 ${citation.page_number} 页` : citation.source_type === "image" ? `${citation.file_name} · 图片 OCR` : "手动输入文字"}</span><blockquote>“{citation.quote}”</blockquote></div>
                   {citation.source_type === "image" ? <ImageIcon size={16} /> : citation.source_type === "text" ? <Type size={16} /> : <FileText size={16} />}
-                </div>
+                </a>
               ))}
             </aside>
           </div>
@@ -145,10 +175,10 @@ export default function Home() {
           <div className="section-head"><div><div className="section-kicker">YOUR LIBRARY</div><h2>最近沉淀的知识</h2></div><button className="text-button">查看全部 <ChevronRight size={17} /></button></div>
           <div className="metrics"><div><strong>{documents.length}</strong><span>知识条目</span></div><div><strong>{topics}</strong><span>自动分类</span></div><div><strong>100%</strong><span>本地模型</span></div></div>
           <div className="video-grid">
-            {documents.slice(0, 3).map((document, index) => (
+            {documents.map((document, index) => (
               <article className="video-card" key={document.id}>
                 <div className={`cover cover-${index % 3}`}><span className="tag">{document.collection}</span><button aria-label="查看内容">{document.source_type === "image" ? <ImageIcon size={20} /> : document.source_type === "text" ? <Type size={20} /> : <FileText size={20} />}</button><small>{document.source_type === "pdf" ? <><FileText size={13} /> {document.page_count} 页</> : document.source_type === "image" ? <><ImageIcon size={13} /> 图片 OCR</> : <><Type size={13} /> 文字笔记</>}</small></div>
-                <div className="video-body"><span>{document.file_name || (document.source_type === "text" ? "手动输入" : "图片 OCR")}</span><h3>{document.title}</h3><p>{document.summary}</p><div><span className="ready"><i /> 已完成索引</span><ArrowUpRight size={17} /></div></div>
+                <div className="video-body"><span>{document.file_name || (document.source_type === "text" ? "手动输入" : "图片 OCR")}</span><h3>{document.title}</h3><p>{document.summary}</p><div><span className="ready"><i /> 已完成索引</span><button className="delete-button" aria-label={`删除 ${document.title}`} onClick={() => removeDocument(document)}><Trash2 size={16} /></button></div></div>
               </article>
             ))}
           </div>
@@ -177,15 +207,15 @@ export default function Home() {
             {inputMode === "pdf" ? <form onSubmit={handlePdf}>
               <label className="file-drop"><Upload size={25} /><strong>选择 PDF 文件</strong><span>最大 20MB · 扫描件自动 OCR · 保留页码</span><input name="file" type="file" accept="application/pdf,.pdf" required /></label>
               <label>文档名称（可选）<input name="title" placeholder="默认使用文件名" /></label>
-              <button className="button dark submit" type="submit">自动识别并分类 <ArrowUpRight size={17} /></button>
+              <button className="button dark submit" type="submit" disabled={ingesting}>{ingesting ? "正在解析、分类和建立索引…" : "自动识别并分类"} <ArrowUpRight size={17} /></button>
             </form> : inputMode === "text" ? <form onSubmit={handleText}>
               <label>标题<input name="title" placeholder="例如：关于 RAG 评估的笔记" minLength={2} required /></label>
               <label>文字内容<textarea name="content" rows={9} placeholder="输入或粘贴需要保存到知识库的内容…" minLength={10} required /></label>
-              <button className="button dark submit" type="submit">自动分类并保存 <ArrowUpRight size={17} /></button>
+              <button className="button dark submit" type="submit" disabled={ingesting}>{ingesting ? "正在分类和建立索引…" : "自动分类并保存"} <ArrowUpRight size={17} /></button>
             </form> : <form onSubmit={handleImage}>
               <label className="file-drop"><Upload size={25} /><strong>选择图片</strong><span>PNG、JPG 或 WebP · 最大 10MB · 自动 OCR</span><input name="file" type="file" accept="image/png,image/jpeg,image/webp" required /></label>
               <label>内容名称（可选）<input name="title" placeholder="默认使用文件名" /></label>
-              <button className="button dark submit" type="submit">识别、分类并保存 <ArrowUpRight size={17} /></button>
+              <button className="button dark submit" type="submit" disabled={ingesting}>{ingesting ? "正在 OCR 和建立索引…" : "识别、分类并保存"} <ArrowUpRight size={17} /></button>
             </form>}
           </div>
         </div>

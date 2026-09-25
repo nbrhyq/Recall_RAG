@@ -1,4 +1,4 @@
-import { demoAnswer, demoVideos } from "./demo";
+import { demoVideos } from "./demo";
 import type { AskResult, Document } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "/backend";
@@ -12,6 +12,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const detail = await response.json().catch(() => ({ detail: "请求失败" }));
     throw new Error(detail.detail || "请求失败");
   }
+  if (response.status === 204) return undefined as T;
   return response.json();
 }
 
@@ -24,20 +25,10 @@ export async function getDocuments(): Promise<{ documents: Document[]; demo: boo
 }
 
 export async function askQuestion(question: string, collection?: string): Promise<AskResult> {
-  try {
-    return await request<AskResult>("/api/ask", {
-      method: "POST",
-      body: JSON.stringify({ question, collection: collection || null }),
-    });
-  } catch {
-    if (question.toLowerCase().includes("rerank") || question.includes("重排")) return demoAnswer;
-    return {
-      answer: "当前演示知识库没有足够信息回答这个问题。启动 API 或添加相关 PDF 后再试，我不会用文档之外的信息补全答案。",
-      citations: [],
-      grounded: false,
-      confidence: 0,
-    };
-  }
+  return request<AskResult>("/api/ask", {
+    method: "POST",
+    body: JSON.stringify({ question, collection: collection || null }),
+  });
 }
 
 export async function addPdf(file: File, title: string): Promise<Document> {
@@ -69,4 +60,12 @@ export async function addText(title: string, content: string): Promise<Document>
     method: "POST",
     body: JSON.stringify({ title, content }),
   });
+}
+
+export async function deleteDocument(id: string): Promise<void> {
+  await request<void>(`/api/documents/${id}`, { method: "DELETE" });
+}
+
+export function documentFileUrl(id: string): string {
+  return `${API_URL}/api/documents/${id}/file`;
 }

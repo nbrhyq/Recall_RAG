@@ -1,0 +1,19 @@
+.submit:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.delete-button {
+  display: grid;
+  padding: 4px;
+  color: #8d9691;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  place-items: center;
+}
+
+.delete-button:hover {
+  color: #a34f32;
+  background: #f4dfd7;
+}

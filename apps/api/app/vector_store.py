@@ -52,3 +52,19 @@ def semantic_search(question: str, limit: int = 20) -> list[dict]:
     vector = embed([question])[0]
     results = db.query_points(collection_name=settings.qdrant_collection, query=vector, limit=limit, with_payload=True).points
     return [{**(point.payload or {}), "vector_score": float(point.score)} for point in results]
+
+
+def delete_document(document_id: str) -> None:
+    settings = get_settings()
+    db = client()
+    if not db.collection_exists(settings.qdrant_collection):
+        return
+    db.delete(
+        collection_name=settings.qdrant_collection,
+        points_selector=models.FilterSelector(
+            filter=models.Filter(
+                must=[models.FieldCondition(key="document_id", match=models.MatchValue(value=document_id))]
+            )
+        ),
+        wait=True,
+    )

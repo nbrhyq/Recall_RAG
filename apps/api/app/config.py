@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     embedding_model: str = "qwen3-embedding:0.6b"
     qdrant_path: str = "qdrant_storage"
     qdrant_collection: str = "recall_chunks"
+    uploads_path: str = "uploads"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

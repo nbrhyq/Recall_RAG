@@ -79,8 +79,15 @@ def rerank(question: str, candidates: list[dict], limit: int = 5) -> list[dict]:
 按相关性从高到低排列。不要输出其他文字。"""
     raw = chat("你是 RAG 二阶段重排器。优先选择直接回答问题、包含关键事实的证据。", prompt, json_output=True)
     data = json.loads(raw)
-    scores = {str(item["id"]): float(item["score"]) for item in data.get("results", [])}
-    ranked = sorted(candidates, key=lambda item: scores.get(item["id"], 0), reverse=True)
-    for item in ranked:
-        item["score"] = scores.get(item["id"], 0)
+    scores = {str(item["id"]): max(0.0, min(1.0, float(item["score"]))) for item in data.get("results", [])}
+    max_keyword = max((float(item.get("keyword_score", 0)) for item in candidates), default=0) or 1
+    vector_values = [float(item.get("vector_score", 0)) for item in candidates]
+    min_vector = min(vector_values, default=0)
+    vector_range = (max(vector_values, default=0) - min_vector) or 1
+    for item in candidates:
+        keyword = float(item.get("keyword_score", 0)) / max_keyword
+        vector = (float(item.get("vector_score", 0)) - min_vector) / vector_range
+        retrieval = keyword * 0.6 + vector * 0.4
+        item["score"] = retrieval * 0.65 + scores.get(item["id"], 0) * 0.35
+    ranked = sorted(candidates, key=lambda item: item["score"], reverse=True)
     return ranked[:limit]
