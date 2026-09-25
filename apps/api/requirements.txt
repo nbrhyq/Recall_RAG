@@ -1,0 +1,8 @@
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic-settings==2.7.1
+httpx==0.28.1
+pytest==8.3.4
+pypdf==6.1.0
+python-multipart==0.0.20
+qdrant-client==1.15.1

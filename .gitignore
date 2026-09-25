@@ -1,0 +1,13 @@
+.DS_Store
+.env
+.env.local
+.venv/
+__pycache__/
+*.py[cod]
+*.db
+node_modules/
+.pnpm-store/
+qdrant_storage/
+.next/
+out/
+coverage/

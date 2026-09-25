@@ -1,0 +1,44 @@
+.mode-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 18px;
+  padding: 5px;
+  border-radius: 9px;
+  background: #efeee8;
+}
+.mode-tabs.three { grid-template-columns: repeat(3, 1fr); }
+
+.mode-tabs button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.mode-tabs button.active {
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.file-drop {
+  align-items: center;
+  padding: 25px !important;
+  border: 1px dashed #aeb9b0 !important;
+  border-radius: 10px;
+  background: #f2f5ef;
+  color: var(--green);
+  text-align: center;
+  cursor: pointer;
+}
+
+.file-drop span { color: var(--muted); font-weight: 400; }
+.file-drop input { width: 100%; padding: 5px; border: 0; background: transparent; }
+.source-card:not(a) { cursor: default; }

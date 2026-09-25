@@ -1,0 +1,26 @@
+services:
+  api:
+    build: ./apps/api
+    environment:
+      DATABASE_PATH: /data/recall.db
+      WEB_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      OLLAMA_MODEL: qwen3:latest
+      EMBEDDING_MODEL: qwen3-embedding:0.6b
+      QDRANT_PATH: /data/qdrant
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - recall-data:/data
+    ports:
+      - "8000:8000"
+  web:
+    build: ./apps/web
+    environment:
+      API_INTERNAL_URL: http://api:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+volumes:
+  recall-data:
