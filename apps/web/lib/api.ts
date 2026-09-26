@@ -17,6 +17,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export async function getDocuments(): Promise<{ documents: Document[]; demo: boolean }> {
+  if (process.env.NEXT_PUBLIC_STATIC_DEMO === "true") {
+    return { documents: demoVideos, demo: true };
+  }
   try {
     return { documents: await request<Document[]>("/api/documents"), demo: false };
   } catch {

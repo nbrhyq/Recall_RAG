@@ -6,6 +6,8 @@ services:
       WEB_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
       OLLAMA_BASE_URL: http://host.docker.internal:11434
       OLLAMA_MODEL: qwen3:latest
+      RERANKER_MODEL: qwen3:0.6b
+      SUFFICIENCY_VECTOR_FLOOR: "0.58"
       EMBEDDING_MODEL: qwen3-embedding:0.6b
       QDRANT_PATH: /data/qdrant
       UPLOADS_PATH: /data/uploads

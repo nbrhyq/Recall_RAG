@@ -37,6 +37,7 @@ Run Ollama in another terminal. The project uses the installed `qwen3:latest` mo
 
 ```bash
 ollama serve
+ollama pull qwen3:0.6b
 ollama pull qwen3-embedding:0.6b
 ollama list
 ```
@@ -51,6 +52,14 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000). The frontend loads built-in demo content when the API is unavailable, so the product can still be reviewed as a UI prototype.
+
+## Online static demo
+
+The `gh-pages` branch publishes a frontend-only product demo. It uses three prebuilt knowledge items and grounded answers for the suggested questions, so reviewers can explore the complete interface without installing Ollama. Free-form ingestion and live model inference remain local-only.
+
+Online demo: [https://nbrhyq.github.io/Recall_RAG/](https://nbrhyq.github.io/Recall_RAG/)
+
+For the product story, decisions, evaluation evidence, and retrospective, see [Portfolio Case Study](docs/PORTFOLIO_CASE_STUDY.md).
 
 ## API
 
@@ -76,3 +85,15 @@ Retrieval uses a three-stage local pipeline:
 3. Qwen3 reranks candidates before generating a citation-grounded answer.
 
 See [docs/PRODUCT.md](docs/PRODUCT.md) for scope and [docs/EVALUATION.md](docs/EVALUATION.md) for the quality framework.
+
+## Evaluation result
+
+The checked-in evaluation set contains 45 manually labelled questions: 35 answerable and 10 that should be refused. The final hybrid pipeline reached 85.7% Hit@1, 100% Hit@3/5, and 100% abstention accuracy on this set. See [the full results](docs/EVALUATION_RESULTS.md) and [Bad Case Analysis](docs/BAD_CASE_ANALYSIS.md), including limitations and latency trade-offs.
+
+Reproduce the comparison after importing the evaluation PDF:
+
+```bash
+cd apps/api
+source .venv/bin/activate
+python evaluation/run_retrieval_eval.py --versions v0_keyword v1_embedding v2_hybrid_rerank --force
+```

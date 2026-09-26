@@ -5,6 +5,7 @@ import "./controls.css";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowUpRight, BookOpen, Check, ChevronRight, FileText, Image as ImageIcon, Library, Plus, Sparkles, Trash2, Type, Upload, X } from "lucide-react";
 import { addImage, addPdf, addText, askQuestion, deleteDocument, documentFileUrl, getDocuments } from "@/lib/api";
+import { getDemoAnswer } from "@/lib/demo";
 import type { AskResult, Document } from "@/lib/types";
 
 const suggestions = ["Reranker 在 RAG 中有什么作用？", "怎样评估一个 RAG 产品？", "Agent 产品设计要注意什么？"];
@@ -25,10 +26,17 @@ export default function Home() {
   const [notice, setNotice] = useState("");
   const [inputMode, setInputMode] = useState<"pdf" | "text" | "image">("pdf");
   const [ingesting, setIngesting] = useState(false);
+  const [loadingSeconds, setLoadingSeconds] = useState(0);
 
   useEffect(() => {
     getDocuments().then((result) => { setDocuments(result.documents); setDemo(result.demo); });
   }, []);
+
+  useEffect(() => {
+    if (!loading) { setLoadingSeconds(0); return; }
+    const timer = window.setInterval(() => setLoadingSeconds((value) => value + 1), 1000);
+    return () => window.clearInterval(timer);
+  }, [loading]);
 
   const topics = useMemo(() => new Set(documents.map((document) => document.collection)).size, [documents]);
 
@@ -38,7 +46,9 @@ export default function Home() {
     setLoading(true);
     setAnswer(null);
     try {
-      const result = await askQuestion(value);
+      const result = demo
+        ? await new Promise<AskResult>((resolve) => window.setTimeout(() => resolve(getDemoAnswer(value)), 850))
+        : await askQuestion(value);
       setAnswer(result);
       requestAnimationFrame(() => document.querySelector("#answer")?.scrollIntoView({ behavior: "smooth", block: "start" }));
     } catch (error) {
@@ -126,9 +136,10 @@ export default function Home() {
         <div className="nav-links">
           <a className="active" href="#ask"><Sparkles size={16} /> 问知识库</a>
           <a href="#library"><Library size={16} /> 收藏库</a>
+          <a href="#evaluation"><Check size={16} /> 验证结果</a>
           <a href="#insight"><BookOpen size={16} /> 产品洞察</a>
         </div>
-        <button className="button dark small" onClick={() => setModal(true)}><Plus size={16} /> 添加知识</button>
+        <button className="button dark small" onClick={() => demo ? setNotice("在线版是静态产品演示；克隆项目并启动本地 API 后即可上传自己的资料") : setModal(true)}><Plus size={16} /> 添加知识</button>
       </nav>
 
       <section className="hero shell" id="top">
@@ -139,7 +150,7 @@ export default function Home() {
         <div className="ask-card" id="ask">
           <div className="ask-top"><Sparkles size={20} /><span>向你的知识库提问</span><span className="scope">全部内容 · {documents.length} 条</span></div>
           <textarea value={question} onChange={(e) => setQuestion(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); } }} placeholder="例如：Reranker 在 RAG 中有什么作用？" rows={3} />
-          <div className="ask-footer"><span>由本地 Qwen3 基于 PDF 证据回答</span><button aria-label="提交问题" onClick={() => submit()} disabled={loading}><ArrowUpRight size={21} /></button></div>
+          <div className="ask-footer"><span>{demo ? "静态演示 · 请尝试下方示例问题" : "由本地 Qwen3 基于 PDF 证据回答"}</span><button aria-label="提交问题" onClick={() => submit()} disabled={loading}><ArrowUpRight size={21} /></button></div>
         </div>
         <div className="suggestions"><span>试着问：</span>{suggestions.map((item) => <button key={item} onClick={() => submit(item)}>{item}</button>)}</div>
       </section>
@@ -152,12 +163,12 @@ export default function Home() {
               <div className={`grounding ${answer.grounded ? "good" : "weak"}`}><Check size={15} /> {answer.grounded ? `已由 ${answer.citations.length} 条收藏验证` : "知识库证据不足"}</div>
               <h2>{question}</h2>
               <p>{answer.answer}</p>
-              {answer.grounded && <div className="confidence"><span>回答可信度</span><div><i style={{ width: `${answer.confidence * 100}%` }} /></div><b>{Math.round(answer.confidence * 100)}%</b></div>}
+              {answer.grounded && <div className="confidence"><span>证据匹配度</span><div><i style={{ width: `${answer.confidence * 100}%` }} /></div><b>{Math.round(answer.confidence * 100)}%</b></div>}
             </article>
             <aside className="sources">
               <div className="source-heading"><span>引用来源</span><small>{answer.citations.length} 个片段</small></div>
               {answer.citations.map((citation, index) => (
-                <a className="source-card" key={`${citation.document_id}-${index}`} href={citation.source_type === "text" ? undefined : documentFileUrl(citation.document_id)} target={citation.source_type === "text" ? undefined : "_blank"} rel="noreferrer">
+                <a className="source-card" key={`${citation.document_id}-${index}`} href={demo || citation.source_type === "text" ? undefined : documentFileUrl(citation.document_id)} target={demo || citation.source_type === "text" ? undefined : "_blank"} rel="noreferrer">
                   <div className="source-number">{String(index + 1).padStart(2, "0")}</div>
                   <div><h3>{citation.title}</h3><span>{citation.source_type === "pdf" ? `${citation.file_name} · 第 ${citation.page_number} 页` : citation.source_type === "image" ? `${citation.file_name} · 图片 OCR` : "手动输入文字"}</span><blockquote>“{citation.quote}”</blockquote></div>
                   {citation.source_type === "image" ? <ImageIcon size={16} /> : citation.source_type === "text" ? <Type size={16} /> : <FileText size={16} />}
@@ -168,7 +179,7 @@ export default function Home() {
         </section>
       )}
 
-      {loading && <section className="loading shell"><span /><p>正在检索收藏并核对引用…</p></section>}
+      {loading && <section className="loading shell"><span /><p>{loadingSeconds < 3 ? "正在进行关键词与向量召回…" : loadingSeconds < 8 ? "正在重排候选证据…" : "正在核验证据并生成回答…"}</p><div className="loading-steps"><i className="done">召回</i><i className={loadingSeconds >= 3 ? "done" : ""}>重排</i><i className={loadingSeconds >= 8 ? "done" : ""}>证据核验</i><i>生成</i></div></section>}
 
       <section className="library-section" id="library">
         <div className="shell">
@@ -185,6 +196,26 @@ export default function Home() {
         </div>
       </section>
 
+      <section className="evaluation-section shell" id="evaluation">
+        <div className="section-kicker">EVALUATED, NOT ASSUMED</div>
+        <div className="evaluation-head">
+          <h2>每一次技术升级，<br />都用 45 个问题验证。</h2>
+          <p>35 个可回答问题与 10 个拒答问题，覆盖角色认知、产品设计、业务落地和 AI 基础。结果来自本机真实运行，不是主观判断。</p>
+        </div>
+        <div className="eval-table" role="table" aria-label="V0 V1 V2 检索评测对比">
+          <div className="eval-row eval-header" role="row"><span>版本</span><span>检索方案</span><span>Hit@1</span><span>Hit@5</span><span>拒答准确率</span><span>平均延迟</span></div>
+          <div className="eval-row" role="row"><b>V0</b><span>关键词</span><strong>82.9%</strong><span>97.1%</span><span>80.0%</span><span>1 ms</span></div>
+          <div className="eval-row" role="row"><b>V1</b><span>Embedding</span><strong>77.1%</strong><span>100%</span><span>80.0%</span><span>93 ms</span></div>
+          <div className="eval-row winner" role="row"><b>V2</b><span>Hybrid + Reranker</span><strong>85.7%</strong><span>100%</span><span>100%</span><span>9.5 s</span></div>
+        </div>
+        <div className="evaluation-notes">
+          <div><b>+2.8pp</b><span>Hit@1 对比关键词基线</span></div>
+          <div><b>100%</b><span>正确页面全部进入 Top 3</span></div>
+          <div><b>0</b><span>评测集错误放行 / 拒答</span></div>
+          <p>代价是更严格的证据核验把平均检索延迟提高到 9.5 秒。当前版本选择可信度优先，下一步优化缓存与模型量化。</p>
+        </div>
+      </section>
+
       <section className="insight shell" id="insight">
         <div><div className="section-kicker">WHY RECALL</div><h2>从“我好像看过”，<br />到“这是原始依据”。</h2></div>
         <div className="principles">
@@ -196,8 +227,8 @@ export default function Home() {
 
       <footer className="shell"><div className="brand"><span className="brand-mark">R</span><span>Recall</span></div><p>Built as a source-grounded AI product case study.</p><span>© 2026</span></footer>
 
-      {demo && <div className="demo-pill">演示模式 · 启动 API 后使用真实数据</div>}
-      {notice && <div className="toast">{notice}</div>}
+      {demo && <div className="demo-pill">静态演示 · 预置知识与问答</div>}
+      {notice && <div className="toast" role="status" aria-live="polite">{notice}</div>}
       {modal && (
         <div className="modal-backdrop" onMouseDown={() => setModal(false)}>
           <div className="modal" onMouseDown={(e) => e.stopPropagation()}>

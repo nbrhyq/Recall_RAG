@@ -10,10 +10,11 @@ class OllamaUnavailableError(RuntimeError):
     pass
 
 
-def chat(system: str, prompt: str, *, json_output: bool = False, timeout: float = 120) -> str:
+def chat(system: str, prompt: str, *, json_output: bool = False, timeout: float = 120, model: str | None = None) -> str:
     settings = get_settings()
+    selected_model = model or settings.ollama_model
     payload = {
-        "model": settings.ollama_model,
+        "model": selected_model,
         "stream": False,
         "think": False,
         "messages": [
@@ -29,7 +30,7 @@ def chat(system: str, prompt: str, *, json_output: bool = False, timeout: float 
         response.raise_for_status()
         return response.json()["message"]["content"].strip()
     except (httpx.HTTPError, KeyError, TypeError) as exc:
-        raise OllamaUnavailableError(f"无法连接本地 Ollama 模型 {settings.ollama_model}") from exc
+        raise OllamaUnavailableError(f"无法连接本地 Ollama 模型 {selected_model}") from exc
 
 
 def classify_document(title: str, text: str, existing_categories: list[str]) -> tuple[str, str]:
@@ -68,18 +69,6 @@ def answer_from_evidence(question: str, hits: list[dict]) -> str:
 def rerank(question: str, candidates: list[dict], limit: int = 5) -> list[dict]:
     if not candidates:
         return []
-    passages = "\n\n".join(f"ID={item['id']}\n{item['text'][:1200]}" for item in candidates[:20])
-    prompt = f"""问题：{question}
-
-候选片段：
-{passages}
-
-请判断每个片段是否直接有助于回答问题。返回 JSON：
-{{"results":[{{"id":"片段ID","score":0到1之间的数字}}]}}
-按相关性从高到低排列。不要输出其他文字。"""
-    raw = chat("你是 RAG 二阶段重排器。优先选择直接回答问题、包含关键事实的证据。", prompt, json_output=True)
-    data = json.loads(raw)
-    scores = {str(item["id"]): max(0.0, min(1.0, float(item["score"]))) for item in data.get("results", [])}
     max_keyword = max((float(item.get("keyword_score", 0)) for item in candidates), default=0) or 1
     vector_values = [float(item.get("vector_score", 0)) for item in candidates]
     min_vector = min(vector_values, default=0)
@@ -87,7 +76,50 @@ def rerank(question: str, candidates: list[dict], limit: int = 5) -> list[dict]:
     for item in candidates:
         keyword = float(item.get("keyword_score", 0)) / max_keyword
         vector = (float(item.get("vector_score", 0)) - min_vector) / vector_range
-        retrieval = keyword * 0.6 + vector * 0.4
-        item["score"] = retrieval * 0.65 + scores.get(item["id"], 0) * 0.35
+        item["retrieval_score"] = keyword * 0.6 + vector * 0.4
+    candidates = sorted(candidates, key=lambda item: item["retrieval_score"], reverse=True)[:10]
+    passages = "\n\n".join(f"ID={item['id']}\n{item['text'][:600]}" for item in candidates)
+    prompt = f"""问题：{question}
+
+候选片段：
+{passages}
+
+请先判断候选证据是否足以回答问题，再按“能否直接回答问题”从高到低排列片段。只返回 JSON：
+{{"answerable":true或false,"ranking":["最相关片段ID","第二相关片段ID"]}}
+必须使用原始 ID，不要打分，不要输出其他文字。"""
+    raw = chat(
+        "你是 RAG 二阶段重排器。优先选择直接回答问题、包含关键事实的证据。",
+        prompt,
+        json_output=True,
+        model=get_settings().reranker_model,
+    )
+    data = json.loads(raw)
+    ranking = [str(item) for item in data.get("ranking", [])]
+    if not ranking and data.get("results"):
+        ranking = [str(item["id"]) for item in sorted(data["results"], key=lambda item: float(item.get("score", 0)), reverse=True)]
+    positions = {item_id: index for index, item_id in enumerate(ranking)}
+    evidence = "\n\n".join(item["text"][:350] for item in candidates[:3])
+    sufficiency_raw = chat(
+        "你是严格的知识库证据充分性分类器。",
+        f"""问题：{question}
+
+候选证据：
+{evidence}
+
+只有证据明确包含问题所需的具体事实时才返回 true。主题相似但缺少答案必须返回 false。
+只返回 JSON：{{"answerable":true或false}}""",
+        json_output=True,
+        model=get_settings().ollama_model,
+    )
+    answerable_value = json.loads(sufficiency_raw).get("answerable", True)
+    if isinstance(answerable_value, str):
+        answerable = answerable_value.strip().lower() not in {"false", "no", "0", "否", "不可回答"}
+    else:
+        answerable = bool(answerable_value)
+    answerable = answerable or max(vector_values, default=0) >= get_settings().sufficiency_vector_floor
+    answerable_factor = 1.0 if answerable else 0.2
+    for item in candidates:
+        reranker_score = 1 - positions.get(item["id"], len(candidates)) / max(1, len(candidates))
+        item["score"] = (item["retrieval_score"] * 0.8 + reranker_score * 0.2) * answerable_factor
     ranked = sorted(candidates, key=lambda item: item["score"], reverse=True)
     return ranked[:limit]

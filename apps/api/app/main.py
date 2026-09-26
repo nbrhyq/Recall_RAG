@@ -45,7 +45,7 @@ def _clean_extracted_text(text: str) -> str:
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "mode": "local", "llm": settings.ollama_model, "embedding": settings.embedding_model, "vector_store": "qdrant-local", "reranker": settings.ollama_model, "ollama_url": settings.ollama_base_url}
+    return {"status": "ok", "mode": "local", "llm": settings.ollama_model, "embedding": settings.embedding_model, "vector_store": "qdrant-local", "reranker": settings.reranker_model, "ollama_url": settings.ollama_base_url}
 
 
 @app.get("/api/documents", response_model=list[Document])

@@ -25,10 +25,24 @@ def test_reranker_keeps_strong_retrieval_evidence(monkeypatch):
     monkeypatch.setattr(
         ollama,
         "chat",
-        lambda *args, **kwargs: '{"results":[{"id":"weak","score":1},{"id":"exact","score":0.2}]}',
+        lambda *args, **kwargs: '{"answerable":true,"ranking":["weak","exact"]}',
     )
     candidates = [
         {"id": "exact", "text": "RAG 是外置知识库", "keyword_score": 0.5, "vector_score": 0.9},
         {"id": "weak", "text": "不相关内容", "keyword_score": 0.0, "vector_score": 0.1},
     ]
     assert ollama.rerank("什么是 RAG", candidates, limit=1)[0]["id"] == "exact"
+
+
+def test_reranker_parses_string_false_as_insufficient(monkeypatch):
+    monkeypatch.setattr(
+        ollama,
+        "chat",
+        lambda *args, **kwargs: '{"answerable":"false","ranking":["weak"]}',
+    )
+    hits = ollama.rerank(
+        "资料没有的问题",
+        [{"id": "weak", "text": "相似但不支持", "keyword_score": 0.2, "vector_score": 0.5}],
+        limit=1,
+    )
+    assert hits[0]["score"] < 0.25

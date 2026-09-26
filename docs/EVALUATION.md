@@ -31,3 +31,11 @@ Create 30–50 questions across at least three topics. For each question, label:
 ## Feedback instrumentation roadmap
 
 Answer feedback should capture helpful/not helpful, citation incorrect, missing source, and answer unsupported as separate signals. A single thumbs-down cannot diagnose the RAG stage that failed.
+
+## Reproducible implementation
+
+- Question set: `apps/api/evaluation/questions.json`
+- Runner: `apps/api/evaluation/run_retrieval_eval.py`
+- Raw results: `apps/api/evaluation/results.json`
+- Final comparison: `docs/EVALUATION_RESULTS.md`
+- Failure analysis: `docs/BAD_CASE_ANALYSIS.md`
