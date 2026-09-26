@@ -3,7 +3,8 @@
 import "./controls.css";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowUpRight, BookOpen, Check, ChevronRight, FileText, Image as ImageIcon, Library, Plus, Sparkles, Trash2, Type, Upload, X } from "lucide-react";
+import Link from "next/link";
+import { ArrowUpRight, BookOpen, Check, ChevronRight, FileText, Image as ImageIcon, Layers3, Library, Plus, Sparkles, Trash2, Type, Upload, X } from "lucide-react";
 import { addImage, addPdf, addText, askQuestion, deleteDocument, documentFileUrl, getDocuments } from "@/lib/api";
 import { getDemoAnswer } from "@/lib/demo";
 import type { AskResult, Document } from "@/lib/types";
@@ -138,6 +139,7 @@ export default function Home() {
           <a href="#library"><Library size={16} /> 收藏库</a>
           <a href="#evaluation"><Check size={16} /> 验证结果</a>
           <a href="#insight"><BookOpen size={16} /> 产品洞察</a>
+          <Link href="/case-study"><Layers3 size={16} /> Case Study</Link>
         </div>
         <button className="button dark small" onClick={() => demo ? setNotice("在线版是静态产品演示；克隆项目并启动本地 API 后即可上传自己的资料") : setModal(true)}><Plus size={16} /> 添加知识</button>
       </nav>
@@ -214,6 +216,7 @@ export default function Home() {
           <div><b>0</b><span>评测集错误放行 / 拒答</span></div>
           <p>代价是更严格的证据核验把平均检索延迟提高到 9.5 秒。当前版本选择可信度优先，下一步优化缓存与模型量化。</p>
         </div>
+        <Link className="case-study-link" href="/case-study">查看完整 Portfolio Case Study <ArrowUpRight size={17} /></Link>
       </section>
 
       <section className="insight shell" id="insight">

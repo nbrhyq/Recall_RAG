@@ -78,6 +78,7 @@
 .evaluation-notes b { font: 500 27px "Newsreader", serif; color: var(--green); }
 .evaluation-notes span { color: var(--muted); font-size: 11px; }
 .evaluation-notes p { margin: 0; }
+.case-study-link { display: inline-flex; align-items: center; gap: 7px; margin-top: 34px; padding-bottom: 5px; border-bottom: 1px solid var(--green); color: var(--green); font-size: 13px; font-weight: 600; text-decoration: none; }
 
 .loading-steps { display: flex; justify-content: center; gap: 8px; margin-top: 12px; }
 .loading-steps i { padding: 5px 9px; border: 1px solid var(--line); border-radius: 99px; color: var(--muted); font-size: 10px; font-style: normal; }
