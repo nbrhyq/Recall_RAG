@@ -55,7 +55,7 @@ Open [http://localhost:3000](http://localhost:3000). The frontend loads built-in
 
 ## Online static demo
 
-The `gh-pages` branch publishes a frontend-only product demo. It uses three prebuilt knowledge items and grounded answers for the suggested questions, so reviewers can explore the complete interface without installing Ollama. Free-form ingestion and live model inference remain local-only.
+GitHub Actions automatically builds and publishes a frontend-only product demo after every push to `main`. It uses three prebuilt knowledge items and grounded answers for the suggested questions, so reviewers can explore the complete interface without installing Ollama. Free-form ingestion and live model inference remain local-only.
 
 Online demo: [https://nbrhyq.github.io/Recall_RAG/](https://nbrhyq.github.io/Recall_RAG/)
 
